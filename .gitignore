@@ -1,0 +1,66 @@
+# ============================================================
+# Secrets — NEVER commit
+# ============================================================
+.env
+*.key
+*.pem
+
+# ============================================================
+# Virtual environment (not relocatable — recreate per machine)
+# ============================================================
+nids_env/
+venv/
+.venv/
+
+# ============================================================
+# Data & ML artifacts (too large for GitHub / machine-generated)
+# Ignore directory *contents* but keep the .gitkeep placeholders so the
+# folder layout still appears on a fresh clone.
+# ============================================================
+data/datasets/*
+data/backups/*
+data/runtime/*
+data/models/*
+
+# Catch-alls in case files land outside data/
+*.csv
+*.npy
+*.model
+*.bak
+
+# ============================================================
+# Runtime-generated DB & logs
+# ============================================================
+*.db
+*.log
+*.log.*
+
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ============================================================
+# Local tool / editor settings
+# ============================================================
+.claude/
+
+# ============================================================
+# OS / editor cruft
+# ============================================================
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Keep the data layout visible on a fresh clone
+!data/README.md
+!data/datasets/.gitkeep
+!data/models/.gitkeep
+!data/runtime/.gitkeep
+!data/backups/.gitkeep
