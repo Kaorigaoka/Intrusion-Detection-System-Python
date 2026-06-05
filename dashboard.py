@@ -489,6 +489,10 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ====================== MAIN DASHBOARD ======================
+# Only viewers are read-only: they see all data, charts, XAI and intel but
+# cannot modify state. Admins and analysts may inject/reset/edit the whitelist.
+can_modify = st.session_state.get("user_role", "").lower() != "viewer"
+
 false_positive_ips = load_false_positive_ips()
 
 @st.cache_data(ttl=3)
@@ -577,55 +581,58 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-    # ---- Demo: Inject Snort alert ----
-    st.markdown("<div style='color:#64748b; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin:10px 0 6px;'>🧪 Snort Simulator</div>", unsafe_allow_html=True)
+    # ---- Demo: Inject Snort alert (admins only) ----
+    if can_modify:
+        st.markdown("<div style='color:#64748b; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin:10px 0 6px;'>🧪 Snort Simulator</div>", unsafe_allow_html=True)
 
-    rule_options = {r[0]: r[0].replace("_", " ").title() for r in _SNORT_RULES}
-    selected_rule = st.selectbox("Rule to inject", options=list(rule_options.keys()),
-                                  format_func=lambda x: rule_options[x], key="sim_rule",
-                                  label_visibility="collapsed")
+        rule_options = {r[0]: r[0].replace("_", " ").title() for r in _SNORT_RULES}
+        selected_rule = st.selectbox("Rule to inject", options=list(rule_options.keys()),
+                                      format_func=lambda x: rule_options[x], key="sim_rule",
+                                      label_visibility="collapsed")
 
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        if st.button("💉 ×1", use_container_width=True, key="inject1"):
-            if inject_snort_alert(selected_rule):
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            if st.button("💉 ×1", use_container_width=True, key="inject1"):
+                if inject_snort_alert(selected_rule):
+                    st.cache_data.clear()
+                    st.rerun()
+        with col_s2:
+            if st.button("💉 ×5", use_container_width=True, key="inject5"):
+                for _ in range(5):
+                    inject_snort_alert(selected_rule)
                 st.cache_data.clear()
                 st.rerun()
-    with col_s2:
-        if st.button("💉 ×5", use_container_width=True, key="inject5"):
-            for _ in range(5):
-                inject_snort_alert(selected_rule)
-            st.cache_data.clear()
-            st.rerun()
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # ---- Reset alerts ----
-    st.markdown("<div style='color:#94241a; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;'>⚠️ Danger Zone</div>", unsafe_allow_html=True)
+    # ---- Reset alerts (admins only) ----
+    if can_modify:
+        st.markdown("<div style='color:#94241a; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;'>⚠️ Danger Zone</div>", unsafe_allow_html=True)
 
-    if "confirm_reset" not in st.session_state:
-        st.session_state.confirm_reset = False
+        if "confirm_reset" not in st.session_state:
+            st.session_state.confirm_reset = False
 
-    if not st.session_state.confirm_reset:
-        if st.button("🗑️ Reset All Alerts", use_container_width=True, key="reset_btn"):
-            st.session_state.confirm_reset = True
-            st.rerun()
-    else:
-        st.warning("Delete ALL alerts from the database?")
-        col_y, col_n = st.columns(2)
-        with col_y:
-            if st.button("✅ Yes", use_container_width=True, key="confirm_yes"):
-                deleted = clear_all_alerts()
-                st.session_state.confirm_reset = False
-                st.cache_data.clear()
-                st.success(f"Cleared {deleted} rows.")
+        if not st.session_state.confirm_reset:
+            if st.button("🗑️ Reset All Alerts", use_container_width=True, key="reset_btn"):
+                st.session_state.confirm_reset = True
                 st.rerun()
-        with col_n:
-            if st.button("❌ No", use_container_width=True, key="confirm_no"):
-                st.session_state.confirm_reset = False
-                st.rerun()
+        else:
+            st.warning("Delete ALL alerts from the database?")
+            col_y, col_n = st.columns(2)
+            with col_y:
+                if st.button("✅ Yes", use_container_width=True, key="confirm_yes"):
+                    deleted = clear_all_alerts()
+                    st.session_state.confirm_reset = False
+                    st.cache_data.clear()
+                    st.success(f"Cleared {deleted} rows.")
+                    st.rerun()
+            with col_n:
+                if st.button("❌ No", use_container_width=True, key="confirm_no"):
+                    st.session_state.confirm_reset = False
+                    st.rerun()
 
-    st.markdown("---")
+        st.markdown("---")
+
     if st.button("🚪 Logout", use_container_width=True):
         logout()
 
@@ -1101,14 +1108,17 @@ with tab_fp:
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        new_ip = st.text_input("IP Address to whitelist", placeholder="e.g. 192.168.8.100", key="new_ip_input")
-        if st.button("➕ Add to Whitelist", type="primary", use_container_width=True):
-            if new_ip and new_ip.strip():
-                save_false_positive_ip(new_ip.strip())
-                st.success(f"✅ {new_ip} added — both directions will be suppressed.")
-                st.rerun()
-            else:
-                st.error("Please enter a valid IP address.")
+        if can_modify:
+            new_ip = st.text_input("IP Address to whitelist", placeholder="e.g. 192.168.8.100", key="new_ip_input")
+            if st.button("➕ Add to Whitelist", type="primary", use_container_width=True):
+                if new_ip and new_ip.strip():
+                    save_false_positive_ip(new_ip.strip())
+                    st.success(f"✅ {new_ip} added — both directions will be suppressed.")
+                    st.rerun()
+                else:
+                    st.error("Please enter a valid IP address.")
+        else:
+            st.info("🔒 Read-only access — whitelist changes require an admin account.")
 
     with col2:
         st.markdown(f"""
@@ -1127,12 +1137,13 @@ with tab_fp:
         fp_df = pd.DataFrame(sorted(list(current_ips)), columns=["IP Address"])
         st.dataframe(fp_df, use_container_width=True, hide_index=True)
 
-        st.markdown("#### Remove an IP")
-        ip_to_remove = st.selectbox("Select IP to remove", options=sorted(current_ips), key="remove_select")
-        if st.button("🗑️ Remove from Whitelist", use_container_width=True):
-            remove_false_positive_ip(ip_to_remove)
-            st.success(f"Removed {ip_to_remove} from whitelist.")
-            st.rerun()
+        if can_modify:
+            st.markdown("#### Remove an IP")
+            ip_to_remove = st.selectbox("Select IP to remove", options=sorted(current_ips), key="remove_select")
+            if st.button("🗑️ Remove from Whitelist", use_container_width=True):
+                remove_false_positive_ip(ip_to_remove)
+                st.success(f"Removed {ip_to_remove} from whitelist.")
+                st.rerun()
     else:
         st.markdown("""
         <div style="text-align:center; padding:30px; color:#475569;">
