@@ -113,6 +113,14 @@ class SnortParser:
             logger.debug("Skipped decoder/inspector event: %s", alert.get("msg"))
             return None
 
+        # Drop alerts that carry no usable endpoints. Snort decoder/builtin
+        # events (e.g. GID 116 "(ipv4) datagram length > captured length")
+        # log no IPs at all ("{eth}  -> "), which otherwise leak into the DB
+        # as Snort_unknown rows with NULL src/dst — useless on the dashboard.
+        if alert is not None and not alert.get("src_ip") and not alert.get("dst_ip"):
+            logger.debug("Skipped IP-less Snort alert: %s", alert.get("msg"))
+            return None
+
         return alert
 
     @staticmethod

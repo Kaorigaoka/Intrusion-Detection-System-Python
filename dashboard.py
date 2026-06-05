@@ -786,6 +786,11 @@ with tab_monitor:
         display_df = filtered_df.head(30).copy()
         display_df["origin"]   = display_df.apply(source_badge, axis=1)
         display_df["severity"] = display_df["confidence"].apply(severity_from_confidence)
+        # Render missing endpoints (e.g. Snort alerts without IP/port) as "—"
+        # instead of a bare None/NaN.
+        for _col in ["src_ip", "dst_ip", "src_port", "dst_port"]:
+            display_df[_col] = display_df[_col].astype("object").where(
+                display_df[_col].notna(), "—")
         st.dataframe(
             display_df[["timestamp", "severity", "origin", "type", "rule",
                          "src_ip", "dst_ip", "src_port", "dst_port", "confidence", "reason"]],
