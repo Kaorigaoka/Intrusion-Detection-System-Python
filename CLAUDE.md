@@ -27,6 +27,30 @@ Virtualenv lives in `nids_env/`. Install deps: `pip install -r requirements.txt`
 > `nids_env/bin/python` (resolves site-packages by location) or recreate the venv.
 > `run_ids.sh` calls `sudo nids_env/bin/python main.py` so it survives this.
 
+## Deployment
+
+The dashboard is exposed publicly via a **Cloudflare Tunnel** — not traditional
+hosting. There is no cloud server and no port forwarding; the whole system stays
+local. Streamlit runs on `localhost:8501` and the tunnel proxies it.
+
+- Public URL: <https://ids-dha-dashboard.app>
+- Tunnel name: `my-tunnel`
+- Tunnel config: `/home/kali/.cloudflared/config.yml`
+
+To run with public access (two terminals):
+
+```bash
+# Terminal 1 — dashboard (binds localhost:8501)
+streamlit run dashboard.py
+
+# Terminal 2 — expose it via Cloudflare
+cloudflared tunnel run my-tunnel
+```
+
+Because the machine must stay local, the IDS capture (`main.py`) and the tunnel
+both run on this host. The tunnel only fronts the dashboard, not the packet
+capture.
+
 ## Architecture
 
 Pipeline orchestrated by `ids.py` (`IntrusionDetectionSystem`):
